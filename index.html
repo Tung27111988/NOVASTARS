@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Nghiệm thu Thanh toán</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen active">
+        <div class="login-box">
+            <div class="login-header">
+                <i data-lucide="book-open-check"></i>
+                <h2>Công ty Cổ phần Giáo dục NOVASTARS</h2>
+            </div>
+            <div class="login-body">
+                <div class="form-group">
+                    <label for="loginUsername">Tên đăng nhập</label>
+                    <input type="text" id="loginUsername" class="form-control" placeholder="Gợi ý: admin hoặc sale1">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Mật khẩu</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="Nhập mật khẩu...">
+                </div>
+                <button id="loginBtn" class="btn btn-primary login-btn">Đăng nhập</button>
+                <div class="login-hint">
+                    <p><strong>Tài khoản Demo (Mật khẩu: 123):</strong></p>
+                    <p>- Admin (Full quyền): <code>admin</code></p>
+                    <p>- Sales (Chỉ cập nhật hồ sơ): <code>sale1</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="appContainer" class="app-container" style="display: none;">
+        <aside class="sidebar">
+            <div class="logo">
+                <i data-lucide="book-open-check"></i>
+                <span style="font-size: 14px; line-height: 1.4;">Công ty Cổ phần Giáo dục NOVASTARS</span>
+            </div>
+            <div class="user-profile">
+                <div class="avatar"><i data-lucide="user"></i></div>
+                <div class="user-info">
+                    <strong id="displayUsername">Admin</strong>
+                    <span id="displayRole">Quản lý cấp cao</span>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Bảng Nghiệm Thu</span>
+                </a>
+                
+                <div id="adminTools" style="display: none; padding-top: 20px; border-top: 1px solid var(--sidebar-hover); margin-top: 20px;">
+                    <p style="padding: 0 24px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; font-weight: bold;">Công cụ Quản trị</p>
+                    <a href="#" class="nav-item" id="btnManageAccounts">
+                        <i data-lucide="users"></i>
+                        <span>Quản lý Tài khoản</span>
+                    </a>
+                    <a href="#" class="nav-item" id="btnDownloadTemplate">
+                        <i data-lucide="download"></i>
+                        <span>Tải File Mẫu</span>
+                    </a>
+                    <a href="#" class="nav-item" id="btnExportExcel">
+                        <i data-lucide="file-down"></i>
+                        <span>Xuất Excel</span>
+                    </a>
+                    <a href="#" class="nav-item" id="btnImportExcelTrigger">
+                        <i data-lucide="file-up"></i>
+                        <span>Nhập từ Excel</span>
+                    </a>
+                    <input type="file" id="fileImportExcel" accept=".xlsx, .xls, .csv" style="display: none;" />
+                </div>
+            </nav>
+            <div style="margin-top: auto; padding: 20px;">
+                <button id="logoutBtn" class="btn btn-secondary" style="width: 100%;">
+                    <i data-lucide="log-out"></i> Đăng xuất
+                </button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>Bảng Theo Dõi Nghiệm Thu</h1>
+                </div>
+                <div class="header-right">
+                    <div class="year-selector">
+                        <select id="branchFilter" class="form-control" style="width: 250px;">
+                            <option value="all">Tất cả Chi nhánh</option>
+                            <option value="Chi nhánh Công ty Cổ phần Giáo dục NOVASTARS">Chi nhánh Công ty Cổ phần Giáo dục NOVASTARS</option>
+                            <option value="Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Lào Cai">Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Lào Cai</option>
+                            <option value="Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Thanh Hóa">Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Thanh Hóa</option>
+                        </select>
+                    </div>
+                    <div class="search-box">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="searchInput" placeholder="Lọc Sales, Trường...">
+                    </div>
+                    <div class="year-selector">
+                        <label for="yearSelect">Năm:</label>
+                        <select id="yearSelect">
+                            <option value="2020">2020</option>
+                            <option value="2021">2021</option>
+                            <option value="2022">2022</option>
+                            <option value="2023">2023</option>
+                            <option value="2024" selected>2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
+                    </div>
+                    <button id="addSchoolBtn" class="btn btn-primary">
+                        <i data-lucide="plus"></i> Thêm Trường
+                    </button>
+                </div>
+            </header>
+
+            <div class="table-container">
+                <table class="matrix-table" id="matrixTable">
+                    <thead>
+                        <tr>
+                            <th class="sticky-col">Chi nhánh</th>
+                            <th class="sticky-col">Sales</th>
+                            <th class="sticky-col">Tên Trường</th>
+                            <th class="sticky-col">Địa bàn</th>
+                            <th class="sticky-col admin-only-col" style="text-align: center;">Xóa</th>
+                            <th>Tháng 1</th><th>Tháng 2</th><th>Tháng 3</th><th>Tháng 4</th>
+                            <th>Tháng 5</th><th>Tháng 6</th><th>Tháng 7</th><th>Tháng 8</th>
+                            <th>Tháng 9</th><th>Tháng 10</th><th>Tháng 11</th><th>Tháng 12</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Account Management Modal -->
+    <div id="accountModal" class="modal">
+        <div class="modal-content" style="width: 550px;">
+            <div class="modal-header">
+                <h2>Quản lý Tài khoản (Sales)</h2>
+                <button class="close-btn" id="closeAccountModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-container" style="padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px;">
+                    <table class="matrix-table" style="width: 100%; box-shadow: none;">
+                        <thead>
+                            <tr>
+                                <th>Tên đăng nhập</th>
+                                <th>Họ Tên</th>
+                                <th>Mật khẩu</th>
+                                <th style="text-align:center;">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <!-- JS will render -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h4 style="font-size: 15px; margin-bottom: 8px;">Tạo Tài Khoản Mới</h4>
+                <div style="display: flex; gap: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" id="newUsername" class="form-control" placeholder="Tên đăng nhập (VD: sale2)">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" id="newName" class="form-control" placeholder="Họ Tên hiển thị">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" id="newPassword" class="form-control" placeholder="Mật khẩu">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelAccountBtn">Đóng</button>
+                <button class="btn btn-primary" id="saveAccountBtn">Thêm Tài Khoản</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="recordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cập nhật hồ sơ - <span id="modalSchoolName"></span></h2>
+                <button class="close-btn" id="closeRecordModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Tháng: <strong id="modalMonthLabel"></strong></p>
+                <div class="form-group">
+                    <label>Tiến độ nộp hồ sơ:</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="checkBBNT"> Biên bản nghiệm thu (BBNT)</label>
+                        <label><input type="checkbox" id="check08a"> Mẫu 08a</label>
+                        <label><input type="checkbox" id="checkDNTT"> Đề nghị thanh toán (ĐNTT)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="recordNote">Ghi chú / Link file</label>
+                    <input type="text" id="recordNote" class="form-control" placeholder="Link ảnh/PDF hoặc ghi chú...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelRecordBtn">Hủy</button>
+                <button class="btn btn-primary" id="saveRecordBtn">Lưu cập nhật</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="schoolModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Thêm Trường Mới</h2>
+                <button class="close-btn" id="closeSchoolModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="schoolBranch">Chi nhánh</label>
+                    <select id="schoolBranch" class="form-control">
+                        <option value="Chi nhánh Công ty Cổ phần Giáo dục NOVASTARS">Chi nhánh Công ty Cổ phần Giáo dục NOVASTARS</option>
+                        <option value="Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Lào Cai">Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Lào Cai</option>
+                        <option value="Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Thanh Hóa">Công ty Cổ phần Giáo dục NOVASTARS - Chi nhánh Thanh Hóa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="schoolSales">Nhân viên Sales phụ trách</label>
+                    <input type="text" id="schoolSales" class="form-control" placeholder="Tên Sales...">
+                </div>
+                <div class="form-group">
+                    <label for="schoolName">Tên Trường</label>
+                    <input type="text" id="schoolName" class="form-control" placeholder="Tên trường học...">
+                </div>
+                <div class="form-group">
+                    <label for="schoolLocation">Địa bàn</label>
+                    <input type="text" id="schoolLocation" class="form-control" placeholder="Quận/Huyện, Tỉnh/TP...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelSchoolBtn">Hủy</button>
+                <button class="btn btn-primary" id="saveSchoolBtn">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
